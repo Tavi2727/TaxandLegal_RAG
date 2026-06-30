@@ -62,31 +62,36 @@ export default function SearchPage({ onOpenDoc }: Props) {
     setLoading(true);
     setHasSearched(true);
 
-    let q = supabase.from('documents').select('*');
-
-    // Apply doc type filter
-    if (docTypeFilter) q = q.eq('doc_type', docTypeFilter);
-    if (categoryFilter) q = q.eq('category', categoryFilter);
-
-    if (searchType === 'keyword') {
-      q = q.or(`title.ilike.%${query}%,content.ilike.%${query}%,category.ilike.%${query}%`);
-    } else if (searchType === 'vector') {
-      q = q.or(`title.ilike.%${query}%,summary.ilike.%${query}%,category.ilike.%${query}%`);
-    } else if (searchType === 'hybrid') {
-      q = q.or(`title.ilike.%${query}%,content.ilike.%${query}%,summary.ilike.%${query}%,category.ilike.%${query}%`);
-    } else if (searchType === 'graph_rag') {
-      q = q.or(`title.ilike.%${query}%,category.ilike.%${query}%,content.ilike.%${query}%`);
-    } else if (searchType === 'page_index') {
-      q = q.or(`title.ilike.%${query}%,content.ilike.%${query}%,summary.ilike.%${query}%`).order('page_count', { ascending: false });
-    }
-
-    const { data, error } = await q.limit(20);
+    const { data, error } = await supabase.rpc('search_documents', {
+      search_query: query.trim(),
+      doc_type_filter: docTypeFilter || null,
+      category_filter: categoryFilter || null,
+    });
 
     if (error) {
       console.error('Search error:', error);
     }
 
-    setResults(data || []);
+    let results = (data as Document[]) || [];
+
+    // Apply search-mode ordering variations on the client side
+    if (searchType === 'page_index') {
+      results = [...results].sort((a, b) => b.page_count - a.page_count);
+    } else if (searchType === 'vector' || searchType === 'hybrid') {
+      // Prefer summary/semantic matches: docs whose summary contains query come first
+      results = [...results].sort((a, b) => {
+        const aMatch = a.summary.toLowerCase().includes(query.toLowerCase()) ? 0 : 1;
+        const bMatch = b.summary.toLowerCase().includes(query.toLowerCase()) ? 0 : 1;
+        return aMatch - bMatch;
+      });
+    } else if (searchType === 'graph_rag') {
+      // Prefer docs with more related_docs (richer graph connections)
+      results = [...results].sort(
+        (a, b) => (b.related_docs?.length || 0) - (a.related_docs?.length || 0)
+      );
+    }
+
+    setResults(results);
     setLoading(false);
   }, [query, searchType, categoryFilter, docTypeFilter]);
 
