@@ -68,19 +68,16 @@ export default function SearchPage({ onOpenDoc }: Props) {
     if (docTypeFilter) q = q.eq('doc_type', docTypeFilter);
     if (categoryFilter) q = q.eq('category', categoryFilter);
 
-    // Simulate different search strategies
     if (searchType === 'keyword') {
-      q = q.or(`title.ilike.%${query}%,content.ilike.%${query}%,keywords.cs.{${query.toLowerCase()}}`);
+      q = q.or(`title.ilike.%${query}%,content.ilike.%${query}%,category.ilike.%${query}%`);
     } else if (searchType === 'vector') {
-      // Simulate vector search: match by category keywords from query
-      q = q.or(`title.ilike.%${query}%,summary.ilike.%${query}%`);
+      q = q.or(`title.ilike.%${query}%,summary.ilike.%${query}%,category.ilike.%${query}%`);
     } else if (searchType === 'hybrid') {
-      q = q.or(`title.ilike.%${query}%,content.ilike.%${query}%,summary.ilike.%${query}%,keywords.cs.{${query.toLowerCase()}}`);
+      q = q.or(`title.ilike.%${query}%,content.ilike.%${query}%,summary.ilike.%${query}%,category.ilike.%${query}%`);
     } else if (searchType === 'graph_rag') {
-      // Simulate graph traversal: search by title and include related docs
-      q = q.or(`title.ilike.%${query}%,category.ilike.%${query}%`);
+      q = q.or(`title.ilike.%${query}%,category.ilike.%${query}%,content.ilike.%${query}%`);
     } else if (searchType === 'page_index') {
-      q = q.or(`title.ilike.%${query}%,content.ilike.%${query}%`).order('page_count', { ascending: false });
+      q = q.or(`title.ilike.%${query}%,content.ilike.%${query}%,summary.ilike.%${query}%`).order('page_count', { ascending: false });
     }
 
     const { data, error } = await q.limit(20);
