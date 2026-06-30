@@ -58,19 +58,15 @@ export default function GoldenSetPage({ onOpenDoc }: Props) {
 
   const fetchEntries = useCallback(async () => {
     setLoading(true);
-    let q = supabase.from('golden_set').select('*');
-
-    if (searchTypeFilter) q = q.eq('search_type', searchTypeFilter);
-    if (difficultyFilter) q = q.eq('difficulty', difficultyFilter);
-    if (search.trim()) {
-      q = q.or(`query.ilike.%${search}%,answer.ilike.%${search}%,category.ilike.%${search}%`);
-    }
-
-    q = q.order('created_at', { ascending: false }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-
-    const { data, error } = await q;
+    const { data, error } = await supabase.rpc('search_golden_set', {
+      search_query: search.trim(),
+      search_type_filter: searchTypeFilter || null,
+      difficulty_filter: difficultyFilter || null,
+      page_offset: page * PAGE_SIZE,
+      page_limit: PAGE_SIZE,
+    });
     if (error) console.error(error);
-    setEntries(data || []);
+    setEntries((data as GoldenSetEntry[]) || []);
     setLoading(false);
   }, [searchTypeFilter, difficultyFilter, search, page]);
 
